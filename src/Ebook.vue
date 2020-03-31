@@ -12,10 +12,17 @@
     </div>
     <!-- 菜单栏 -->
     <menu-bar
+      :bookAvailable="bookAvailable"
       :defaultFontSize="defaultFontSize"
+      :defaultTheme="defaultTheme"
       :fontSizeList="fontSizeList"
       :ifTitleAndMenu="ifTitleAndMenu"
+      :navigation="navigation"
+      :themeList="themeList"
+      @jumpTo="jumpTo"
+      @onProgressChange="onProgressChange"
       @setFontSize="setFontSize"
+      @setTheme="setTheme"
       ref="menuBar"
     ></menu-bar>
   </div>
@@ -39,7 +46,44 @@ export default {
         { fontSize: 20 },
         { fontSize: 22 },
         { fontSize: 24 }
-      ]
+      ],
+      defaultTheme: 0,
+      themeList: [
+        {
+          name: 'default',
+          style: {
+            body: {
+              'color': '#000', 'background': '#fff'
+            }
+          }
+        },
+        {
+          name: 'eye',
+          style: {
+            body: {
+              'color': '#000', 'background': '#ceeaba'
+            }
+          }
+        },
+        {
+          name: 'night',
+          style: {
+            body: {
+              'color': '#fff', 'background': '#000'
+            }
+          }
+        },
+        {
+          name: 'gold',
+          style: {
+            body: {
+              'color': '#000', 'background': 'rgb(241,236,226)'
+            }
+          }
+        }
+      ],
+      bookAvailable: false,
+      navigation: {}
     }
   },
   methods: {
@@ -47,7 +91,7 @@ export default {
     showEpub () {
       // 生成book、hideSetting
       this.book = new Epub(DOWNLOAD_URL)
-      console.log(this.book)
+      console.log('this.book', this.book)
       // 生成rendtion对象
       this.rendition = this.book.renderTo('read', {
         width: window.innerWidth,
@@ -58,6 +102,22 @@ export default {
       this.themes = this.rendition.themes
       // 设置默认字体
       this.setFontSize(this.defaultFontSize)
+
+      // this.themes.register(name, styles)
+      this.registerTheme()
+      // this.themes.select('eye')
+      this.setTheme(this.defaultTheme) // 设置主题
+      // 获取进度条location对象，默认不会生成
+      // 通过epubjs的钩子函数来实现
+      // this.book.locations()
+      this.book.ready.then(() => {
+        this.navigation = this.book.navigation
+        return this.book.locations.generate()
+      }).then(res => {
+        this.locations = this.book.locations
+        // this.onProgressChange()
+        this.bookAvailable = true
+      })
     },
     toggleTitleAndMenu () {
       this.ifTitleAndMenu = !this.ifTitleAndMenu
@@ -82,7 +142,32 @@ export default {
       if (this.themes) {
         this.themes.fontSize(fontSize + 'px')
       }
+    },
+    setTheme (index) {
+      this.themes.select(this.themeList[index].name)
+      this.defaultTheme = index
+    },
+    registerTheme () {
+      this.themeList.forEach(theme => {
+        this.themes.register(theme.name, theme.style)
+      })
+    },
+    onProgressChange (progress) {
+      const percentage = progress / 100
+      const location = percentage > 0 ? this.locations.cfiFromPercentage(percentage) : 0
+      this.rendition.display(location)
+    },
+    hideTitleAndMenu () {
+      this.ifTitleAndMenu = false
+      this.$refs.menuBar.hideSetting()
+      this.$refs.menuBar.hideContent()
+    },
+    // 根据链接跳转
+    jumpTo (href) {
+      this.rendition.display(href)
+      this.hideTitleAndMenu()
     }
+
   },
   components: {
     MenuBar,
